@@ -121,18 +121,12 @@ function fastPathLoginRedirect() {
   }
 
   const currentPath = window.location.pathname;
-  if (!LOGIN_PATH_REGEX.test(currentPath) && !TOPIC_PATH_REGEX.test(currentPath)) {
+  // 快速路径仅用于 /login，避免在帖子详情页误触发额外 OAuth 跳转。
+  if (!LOGIN_PATH_REGEX.test(currentPath)) {
     return false;
   }
 
   const sourceUrl = getCurrentRelativeUrl();
-
-  // 主题页直跳 OAuth，减少一次 topic -> login 跳转。
-  if (TOPIC_PATH_REGEX.test(currentPath)) {
-    saveReturnTopic(sourceUrl);
-    redirectOnce(sourceUrl, "/auth/oauth2_basic", true);
-    return true;
-  }
 
   // 兼容 /login?redirect=/t/.. 场景，提前记录原帖地址。
   const redirectInQuery = parseRedirectQuery();
@@ -194,10 +188,15 @@ export default {
       const isLoggedIn = !!(html && html.classList.contains("logged-in"));
       if (isLoggedIn) {
         const returnTopic = getReturnTopic();
-        if (returnTopic && returnTopic !== getCurrentRelativeUrl()) {
+        const currentPath = normalizePath(getCurrentRelativeUrl());
+        const returnPath = normalizePath(returnTopic);
+        if (returnTopic && returnPath !== currentPath) {
           clearReturnTopic();
           window.location.replace(returnTopic);
           return;
+        }
+        if (returnTopic && returnPath === currentPath) {
+          clearReturnTopic();
         }
       }
     }
