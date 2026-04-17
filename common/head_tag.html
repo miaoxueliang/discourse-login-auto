@@ -1,0 +1,36 @@
+<script>
+(function () {
+  try {
+    var ua = (window.navigator && window.navigator.userAgent) || "";
+    var isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua);
+    if (!isMobile) {
+      return;
+    }
+
+    var path = window.location.pathname || "";
+    if (!/^\/login\/?$/.test(path)) {
+      return;
+    }
+
+    var params = new URLSearchParams(window.location.search || "");
+    var redirect = params.get("redirect") || "";
+    if (/^\/t\/[^/]+\/\d+(?:\/\d+)?\/?$/.test(redirect.split("?")[0])) {
+      window.sessionStorage.setItem(
+        "discourse-login-auto:return-topic",
+        JSON.stringify({ url: redirect, ts: Date.now() })
+      );
+    }
+
+    var key = "discourse-login-auto:head-login-redirect:" + path + window.location.search;
+    var last = Number(window.sessionStorage.getItem(key) || "0");
+    if (last && Date.now() - last < 30000) {
+      return;
+    }
+
+    window.sessionStorage.setItem(key, String(Date.now()));
+    window.location.replace("/auth/oauth2_basic");
+  } catch (_e) {
+    // no-op
+  }
+})();
+</script>

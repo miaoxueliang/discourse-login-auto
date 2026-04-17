@@ -7,6 +7,18 @@ const AUTO_REDIRECT_TTL_MS = 30 * 1000;
 const RETURN_TOPIC_KEY = "discourse-login-auto:return-topic";
 const RETURN_TOPIC_TTL_MS = 10 * 60 * 1000;
 
+function normalizePath(url) {
+  try {
+    const path = String(url || "").split("?")[0].split("#")[0];
+    if (!path) {
+      return "/";
+    }
+    return path.endsWith("/") && path.length > 1 ? path.slice(0, -1) : path;
+  } catch (_e) {
+    return "/";
+  }
+}
+
 function isMobileBrowser() {
   if (typeof window === "undefined") {
     return false;
@@ -139,10 +151,15 @@ function handleAutoLogin(api) {
 
   if (api.getCurrentUser()) {
     const returnTopic = getReturnTopic();
-    if (returnTopic && returnTopic !== getCurrentRelativeUrl()) {
+    const currentPath = normalizePath(getCurrentRelativeUrl());
+    const returnPath = normalizePath(returnTopic);
+    if (returnTopic && returnPath !== currentPath) {
       clearReturnTopic();
       window.location.replace(returnTopic);
       return;
+    }
+    if (returnTopic && returnPath === currentPath) {
+      clearReturnTopic();
     }
     return;
   }
