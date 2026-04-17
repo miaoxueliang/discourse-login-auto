@@ -6,6 +6,8 @@ const AUTO_REDIRECT_MARK = "discourse-login-auto:redirected";
 const AUTO_REDIRECT_TTL_MS = 30 * 1000;
 const RETURN_TOPIC_KEY = "discourse-login-auto:return-topic";
 const RETURN_TOPIC_TTL_MS = 10 * 60 * 1000;
+const OAUTH_FLOW_KEY = "discourse-login-auto:oauth-flow";
+const OAUTH_FLOW_TTL_MS = 45 * 1000;
 
 function normalizePath(url) {
   try {
@@ -67,6 +69,26 @@ function markRedirect(storageKey) {
   window.sessionStorage.setItem(storageKey, JSON.stringify({ ts: Date.now() }));
 }
 
+function markOauthFlow() {
+  window.sessionStorage.setItem(OAUTH_FLOW_KEY, String(Date.now()));
+}
+
+function clearOauthFlow() {
+  window.sessionStorage.removeItem(OAUTH_FLOW_KEY);
+}
+
+function isOauthFlowCoolingDown() {
+  const ts = Number(window.sessionStorage.getItem(OAUTH_FLOW_KEY) || "0");
+  if (!ts) {
+    return false;
+  }
+  if (Date.now() - ts > OAUTH_FLOW_TTL_MS) {
+    clearOauthFlow();
+    return false;
+  }
+  return true;
+}
+
 function saveReturnTopic(url) {
   if (!url || !TOPIC_PATH_REGEX.test(url.split("?")[0])) {
     return;
@@ -108,6 +130,9 @@ function redirectOnce(sourceUrl, targetUrl, useReplace = false) {
   }
 
   markRedirect(storageKey);
+  if (targetUrl.indexOf("/auth/oauth2_basic") === 0) {
+    markOauthFlow();
+  }
   if (useReplace) {
     window.location.replace(targetUrl);
     return;
@@ -143,7 +168,10 @@ function handleAutoLogin(api) {
     return;
   }
 
+  const { pathname } = window.location;
+
   if (api.getCurrentUser()) {
+    clearOauthFlow();
     const returnTopic = getReturnTopic();
     const currentPath = normalizePath(getCurrentRelativeUrl());
     const returnPath = normalizePath(returnTopic);
@@ -158,13 +186,17 @@ function handleAutoLogin(api) {
     return;
   }
 
+  // 生产环境用户态注入较慢时，避免在 OAuth 回流期间二次触发 topic -> OAuth。
+  if (TOPIC_PATH_REGEX.test(pathname) && isOauthFlowCoolingDown()) {
+    return;
+  }
+
   const sourceUrl = getCurrentRelativeUrl();
-  const { pathname } = window.location;
 
   // 帖子详情页未登录：直接拉起 OAuth，减少一跳。
   if (TOPIC_PATH_REGEX.test(pathname)) {
     saveReturnTopic(sourceUrl);
-    redirectOnce(sourceUrl, "/auth/oauth2_basic");
+    redirectOnce(sourceUrl, "/auth/oauth2_basic", true);
     return;
   }
 
