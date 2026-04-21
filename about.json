@@ -1,8 +1,9 @@
 {
-  "name": "Discourse Login Auto",
+  "name": "discourse-login-auto",
+  "description": "【EEO】企微手机端登录页自动登录插件",
   "component": true,
   "about_url": "https://github.com/miaoxueliang/discourse-login-auto",
-  "license_url": "https://github.com/miaoxueliang/discourse-login-auto/blob/main/LICENSE",
-  "theme_version": "1.0.0",
-  "authors": "EEO Development Team"
+  "license_url": "https://opensource.org/licenses/MIT",
+  "theme_version": "1.0.1",
+  "authors": "xueliang.miao@eeoa.com"
 }
