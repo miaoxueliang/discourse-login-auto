@@ -1,6 +1,7 @@
 import { withPluginApi } from "discourse/lib/plugin-api";
 
 const LOGIN_PATH_REGEX = /^\/login\/?$/;
+const HOME_PATH_REGEX = /^\/$/;
 const TOPIC_PATH_REGEX = /^\/t\/[^/]+\/\d+(?:\/\d+)?\/?$/;
 const AUTO_REDIRECT_MARK = "discourse-login-auto:redirected";
 const AUTO_REDIRECT_TTL_MS = 30 * 1000;
@@ -19,16 +20,6 @@ function normalizePath(url) {
   } catch (_e) {
     return "/";
   }
-}
-
-function isMobileBrowser() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(
-    window.navigator?.userAgent || ""
-  );
 }
 
 function getCurrentRelativeUrl() {
@@ -141,7 +132,7 @@ function redirectOnce(sourceUrl, targetUrl, useReplace = false) {
 }
 
 function fastPathLoginRedirect() {
-  if (typeof window === "undefined" || !isMobileBrowser()) {
+  if (typeof window === "undefined") {
     return false;
   }
 
@@ -152,6 +143,10 @@ function fastPathLoginRedirect() {
   }
 
   const sourceUrl = getCurrentRelativeUrl();
+  const params = new URLSearchParams(window.location.search || "");
+  if (params.get("local_login") === "1") {
+    return false;
+  }
 
   // 兼容 /login?redirect=/t/.. 场景，提前记录原帖地址。
   const redirectInQuery = parseRedirectQuery();
@@ -164,7 +159,7 @@ function fastPathLoginRedirect() {
 }
 
 function handleAutoLogin(api) {
-  if (typeof window === "undefined" || !isMobileBrowser()) {
+  if (typeof window === "undefined") {
     return;
   }
 
@@ -194,7 +189,7 @@ function handleAutoLogin(api) {
   const sourceUrl = getCurrentRelativeUrl();
 
   // 帖子详情页未登录：直接拉起 OAuth，减少一跳。
-  if (TOPIC_PATH_REGEX.test(pathname)) {
+  if (HOME_PATH_REGEX.test(pathname) || TOPIC_PATH_REGEX.test(pathname)) {
     saveReturnTopic(sourceUrl);
     redirectOnce(sourceUrl, "/auth/oauth2_basic", true);
     return;
@@ -202,6 +197,10 @@ function handleAutoLogin(api) {
 
   // 登录页未登录：直接拉起 OAuth；有 redirect 参数时记录原帖。
   if (LOGIN_PATH_REGEX.test(pathname)) {
+    const params = new URLSearchParams(window.location.search || "");
+    if (params.get("local_login") === "1") {
+      return;
+    }
     const redirectInQuery = parseRedirectQuery();
     if (redirectInQuery) {
       saveReturnTopic(redirectInQuery);
