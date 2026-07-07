@@ -148,6 +148,11 @@ function fastPathLoginRedirect() {
     return false;
   }
 
+  // OAuth 刚完成后若被回跳到 /login（罕见），不要再次触发 OAuth，避免死循环。
+  if (isOauthFlowCoolingDown()) {
+    return false;
+  }
+
   // 兼容 /login?redirect=/t/.. 场景，提前记录原帖地址。
   const redirectInQuery = parseRedirectQuery();
   if (redirectInQuery) {
@@ -199,6 +204,10 @@ function handleAutoLogin(api) {
   if (LOGIN_PATH_REGEX.test(pathname)) {
     const params = new URLSearchParams(window.location.search || "");
     if (params.get("local_login") === "1") {
+      return;
+    }
+    // OAuth 刚完成后若被回跳到 /login（罕见），不要再次触发 OAuth，避免死循环。
+    if (isOauthFlowCoolingDown()) {
       return;
     }
     const redirectInQuery = parseRedirectQuery();
